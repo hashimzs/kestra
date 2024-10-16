@@ -65,6 +65,7 @@ import io.micronaut.http.annotation.Post;
 import io.micronaut.http.annotation.Put;
 import io.micronaut.http.annotation.QueryValue;
 import io.micronaut.http.exceptions.HttpStatusException;
+import io.micronaut.http.server.exceptions.NotFoundException;
 import io.micronaut.http.server.multipart.MultipartBody;
 import io.micronaut.http.server.types.files.StreamedFile;
 import io.micronaut.http.sse.Event;
@@ -1319,6 +1320,20 @@ public class ExecutionController {
             .block();
 
         return resumeByIds(ids);
+    }
+
+    @ExecuteOn(TaskExecutors.IO)
+    @Post(uri = "/{executionId}/pause")
+    @Operation(tags = {"Executions"}, summary = "Pause a running execution.")
+    @ApiResponse(responseCode = "204", description = "On success")
+    @ApiResponse(responseCode = "409", description = "if the executions is not running")
+    public void pause(
+        @Parameter(description = "The execution id") @PathVariable String executionId
+    ) throws Exception {
+        Execution execution = executionRepository.findById(tenantService.resolveTenant(), executionId).orElseThrow(NotFoundException::new);
+
+        Execution pausedExecution = execution.withState(State.Type.PAUSED);
+        this.executionQueue.emit(pausedExecution);
     }
 
     @ExecuteOn(TaskExecutors.IO)
